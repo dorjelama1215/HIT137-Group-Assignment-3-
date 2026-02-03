@@ -7,7 +7,7 @@ import os
 
 class FileHandler:
     """This class is responsible for managing image file input and output operation
-    Demonstrates encapsulation by isolating all file handling topics"""
+    Demonstrates encapsulation by isolating all file handling operations"""
 
     def __init__(self):
         """Initializes the FileHandler objects
@@ -15,9 +15,9 @@ class FileHandler:
 
         self.current_file_path=None
 
-    def openfile(self):
+    def open_file(self):
         """Opens a file dialog to open a file selected by the user
-        Returns str if a file is selected and none is no file is selected"""
+        Returns str if a file is selected and none if no file is selected"""
         filepath= filedialog.askopenfilename(
         title="Open Image",
         filetypes=[
@@ -29,7 +29,7 @@ class FileHandler:
         self.current_file_path=filepath
         return filepath
 
-    def savefile(self,image):
+    def save_file(self,image):
         """Saves the image to the current file path
         If no file path exists the method redirects to save as file operation""" 
 
@@ -41,7 +41,7 @@ class FileHandler:
             
         
     
-    def savefileas(self,image):
+    def save_file_as(self,image):
         """Opens a save as dialog to save the image with a new name"""
         filepath=filedialog.asksaveasfilename(
         title="Save image as",
