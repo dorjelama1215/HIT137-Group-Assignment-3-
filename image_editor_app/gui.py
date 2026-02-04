@@ -340,7 +340,6 @@ class ImageEditorApp(tk.Tk):
         self.model.apply_change(new_img)
         self.blur_reference = self.model.get_image().copy()
         self._update_display()
-        self._update_status_bar()
 
     def apply_blur(self):
         if not self._ensure_image_loaded():
