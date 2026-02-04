@@ -53,5 +53,7 @@ class ImageProcessor:
     def resize(self, image, scale=1.0):
         if scale <= 0:
             return image
-       
+        h, w = image.shape[:2]
+        new_w = int(w * scale)
+        new_h = int(h * scale)
         return cv2.resize(image, (new_w, new_h), interpolation=cv2.INTER_LINEAR)
