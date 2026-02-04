@@ -5,6 +5,8 @@ from tkinter import filedialog, messagebox
 from tkinter import ttk
 from PIL import Image, ImageTk
 import os
+import cv2
+import numpy as np
 
 from image_model import ImageModel
 from image_processor import ImageProcessor
@@ -23,8 +25,12 @@ class ImageEditorApp(tk.Tk):
         self.model = ImageModel()
         self.processor = ImageProcessor()
 
-        self._original_for_sliders = None  # for brightness/contrast reference
-        self.tk_image = None               # keep reference to avoid GC
+        self._original_for_sliders = None
+        self.tk_image = None               
+        self.blur_reference = None
+        self.grayscale_intensity = tk.DoubleVar(value=0.0)
+        self.blur_intensity = tk.DoubleVar(value=0.0)
+        self.edge_intensity = tk.DoubleVar(value=0.0)
 
         self._create_menu()
         self._create_widgets()
@@ -58,18 +64,68 @@ class ImageEditorApp(tk.Tk):
         self.canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
         # Right: control panel
-        control_frame = tk.Frame(self, width=250)
+        control_frame = tk.Frame(self, width=280)
         control_frame.pack(side=tk.RIGHT, fill=tk.Y)
 
         # Buttons for basic operations
         tk.Label(control_frame, text="Operations", font=("Arial", 12, "bold")).pack(pady=10)
 
-        tk.Button(control_frame, text="Grayscale", command=self.apply_grayscale).pack(fill=tk.X, padx=10, pady=2)
-        tk.Button(control_frame, text="Blur", command=self.apply_blur).pack(fill=tk.X, padx=10, pady=2)
-        tk.Button(control_frame, text="Edge Detection", command=self.apply_edges).pack(fill=tk.X, padx=10, pady=2)
+        tk.Button(control_frame, text="Reset All", command=self.reset_all, bg="lightblue").pack(fill=tk.X, padx=10, pady=5)
+
+        tk.Button(control_frame, text="Apply Grayscale", command=self.apply_grayscale).pack(fill=tk.X, padx=10, pady=2)
+        tk.Button(control_frame, text="Apply Blur", command=self.apply_blur).pack(fill=tk.X, padx=10, pady=2)
+        tk.Button(control_frame, text="Apply Edges", command=self.apply_edges).pack(fill=tk.X, padx=10, pady=2)
+
+        # Grayscale Intensity Slider + buttons
+        tk.Label(control_frame, text="Grayscale Intensity", font=("Arial", 10, "bold")).pack(pady=(15, 0))
+        gs_frame = tk.Frame(control_frame)
+        gs_frame.pack(pady=2)
+        tk.Button(gs_frame, text="-", width=3, command=lambda: self.adjust_grayscale(-0.1)).pack(side=tk.LEFT, padx=2)
+        tk.Button(gs_frame, text="+", width=3, command=lambda: self.adjust_grayscale(0.1)).pack(side=tk.LEFT, padx=2)
+        gs_slider = ttk.Scale(
+            gs_frame,
+            from_=0.0,
+            to=1.0,
+            orient=tk.HORIZONTAL,
+            variable=self.grayscale_intensity,
+            command=self.on_intensity_change
+        )
+        gs_slider.pack(fill=tk.X, padx=(10, 0), pady=2)
+
+        # Blur Intensity Slider + buttons
+        tk.Label(control_frame, text="Blur Intensity", font=("Arial", 10, "bold")).pack(pady=(10, 0))
+        blur_frame = tk.Frame(control_frame)
+        blur_frame.pack(pady=2)
+        tk.Button(blur_frame, text="-", width=3, command=lambda: self.adjust_blur(-1)).pack(side=tk.LEFT, padx=2)
+        tk.Button(blur_frame, text="+", width=3, command=lambda: self.adjust_blur(1)).pack(side=tk.LEFT, padx=2)
+        blur_slider = ttk.Scale(
+            blur_frame,
+            from_=0,
+            to=15,
+            orient=tk.HORIZONTAL,
+            variable=self.blur_intensity,
+            command=self.on_intensity_change
+        )
+        blur_slider.pack(fill=tk.X, padx=(10, 0), pady=2)
+
+        # Edge Intensity Slider + buttons
+        tk.Label(control_frame, text="Edge Intensity", font=("Arial", 10, "bold")).pack(pady=(10, 0))
+        edge_frame = tk.Frame(control_frame)
+        edge_frame.pack(pady=2)
+        tk.Button(edge_frame, text="-", width=3, command=lambda: self.adjust_edge(-10)).pack(side=tk.LEFT, padx=2)
+        tk.Button(edge_frame, text="+", width=3, command=lambda: self.adjust_edge(10)).pack(side=tk.LEFT, padx=2)
+        edge_slider = ttk.Scale(
+            edge_frame,
+            from_=0,
+            to=300,
+            orient=tk.HORIZONTAL,
+            variable=self.edge_intensity,
+            command=self.on_intensity_change
+        )
+        edge_slider.pack(fill=tk.X, padx=(10, 0), pady=2)
 
         # Rotation
-        tk.Label(control_frame, text="Rotate", font=("Arial", 10, "bold")).pack(pady=(10, 0))
+        tk.Label(control_frame, text="Rotate", font=("Arial", 10, "bold")).pack(pady=(15, 0))
         rot_frame = tk.Frame(control_frame)
         rot_frame.pack(pady=2)
         tk.Button(rot_frame, text="90°", command=lambda: self.apply_rotate(90)).pack(side=tk.LEFT, padx=2)
@@ -84,7 +140,7 @@ class ImageEditorApp(tk.Tk):
         tk.Button(flip_frame, text="Vertical", command=lambda: self.apply_flip("vertical")).pack(side=tk.LEFT, padx=2)
 
         # Resize/scale slider
-        tk.Label(control_frame, text="Resize (Scale)", font=("Arial", 10, "bold")).pack(pady=(10, 0))
+        tk.Label(control_frame, text="Resize (Scale)", font=("Arial", 10, "bold")).pack(pady=(15, 0))
         self.scale_var = tk.DoubleVar(value=1.0)
         scale_slider = ttk.Scale(
             control_frame,
@@ -95,7 +151,6 @@ class ImageEditorApp(tk.Tk):
             command=self.on_scale_change
         )
         scale_slider.pack(fill=tk.X, padx=10, pady=2)
-        tk.Label(control_frame, text="0.2x - 2.0x").pack(pady=(0, 5))
 
         # Brightness slider
         tk.Label(control_frame, text="Brightness", font=("Arial", 10, "bold")).pack(pady=(10, 0))
@@ -128,6 +183,73 @@ class ImageEditorApp(tk.Tk):
         status_bar = tk.Label(self, textvariable=self.status_var, bd=1, relief=tk.SUNKEN, anchor=tk.W)
         status_bar.pack(side=tk.BOTTOM, fill=tk.X)
 
+    # ---------- New intensity control methods ----------
+
+    def reset_all(self):
+        """Reset all sliders and intensities to default."""
+        self.grayscale_intensity.set(0.0)
+        self.blur_intensity.set(0.0)
+        self.edge_intensity.set(0.0)
+        self._reset_sliders()
+        if self.model.get_image() is not None:
+            self._update_display()
+            self._update_status_bar()
+
+    def on_intensity_change(self, event=None):
+        """Live preview for grayscale, blur, edge sliders."""
+        if self.blur_reference is None and self.model.get_image() is not None:
+            self.blur_reference = self.model.get_image().copy()
+        
+        if self.blur_reference is not None:
+            img = self._apply_intensity_filters(self.blur_reference.copy())
+            self._display_image(img)
+            self._update_status_bar(temp_image=img)
+
+    def _apply_intensity_filters(self, base_img):
+        """Apply grayscale, blur, edge effects based on current sliders."""
+        img = base_img.copy()
+        
+        # Grayscale effect (0=no effect, 1=full grayscale)
+        if self.grayscale_intensity.get() > 0:
+            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            gray = cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR)
+            img = cv2.addWeighted(img, 1.0 - self.grayscale_intensity.get(), gray, self.grayscale_intensity.get(), 0)
+        
+        # Blur effect (0=no blur, higher=more blur)
+        blur_ksize = max(1, int(self.blur_intensity.get()) * 2 + 1)
+        if self.blur_intensity.get() > 0:
+            img = cv2.GaussianBlur(img, (blur_ksize, blur_ksize), 0)
+        
+        # Edge effect (overlay edges on top)
+        if self.edge_intensity.get() > 0:
+            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            edges = cv2.Canny(gray, 50, 150)
+            edges_colored = cv2.cvtColor(edges, cv2.COLOR_GRAY2BGR)
+            img = cv2.addWeighted(img, 1.0, edges_colored, self.edge_intensity.get() / 300.0, 0)
+        
+        return img
+
+    def adjust_grayscale(self, delta):
+        """Adjust grayscale intensity with +/- buttons."""
+        current = self.grayscale_intensity.get()
+        new_val = max(0.0, min(1.0, current + delta))
+        self.grayscale_intensity.set(new_val)
+        self.on_intensity_change()
+
+    def adjust_blur(self, delta):
+        """Adjust blur intensity with +/- buttons."""
+        current = self.blur_intensity.get()
+        new_val = max(0, min(15, current + delta))
+        self.blur_intensity.set(new_val)
+        self.on_intensity_change()
+
+    def adjust_edge(self, delta):
+        """Adjust edge intensity with +/- buttons."""
+        current = self.edge_intensity.get()
+        new_val = max(0, min(300, current + delta))
+        self.edge_intensity.set(new_val)
+        self.on_intensity_change()
+
     # ---------- File operations ----------
 
     def open_image(self):
@@ -141,7 +263,8 @@ class ImageEditorApp(tk.Tk):
         try:
             self.model.load_image(path)
             self._original_for_sliders = self.model.get_image().copy()
-            self._reset_sliders()
+            self.blur_reference = self.model.get_image().copy()
+            self.reset_all()
             self._update_display()
             self._update_status_bar()
         except Exception as e:
@@ -188,14 +311,16 @@ class ImageEditorApp(tk.Tk):
     def undo(self):
         self.model.undo()
         self._original_for_sliders = self.model.get_image().copy() if self.model.get_image() is not None else None
-        self._reset_sliders()
+        self.blur_reference = self.model.get_image().copy() if self.model.get_image() is not None else None
+        self.reset_all()
         self._update_display()
         self._update_status_bar()
 
     def redo(self):
         self.model.redo()
         self._original_for_sliders = self.model.get_image().copy() if self.model.get_image() is not None else None
-        self._reset_sliders()
+        self.blur_reference = self.model.get_image().copy() if self.model.get_image() is not None else None
+        self.reset_all()
         self._update_display()
         self._update_status_bar()
 
@@ -211,10 +336,9 @@ class ImageEditorApp(tk.Tk):
         if not self._ensure_image_loaded():
             return
         img = self.model.get_image()
-        new_img = self.processor.to_grayscale(img)
+        new_img = self._apply_intensity_filters(img)
         self.model.apply_change(new_img)
-        self._original_for_sliders = self.model.get_image().copy()
-        self._reset_sliders()
+        self.blur_reference = self.model.get_image().copy()
         self._update_display()
         self._update_status_bar()
 
@@ -222,10 +346,9 @@ class ImageEditorApp(tk.Tk):
         if not self._ensure_image_loaded():
             return
         img = self.model.get_image()
-        new_img = self.processor.blur(img, ksize=7)
+        new_img = self._apply_intensity_filters(img)
         self.model.apply_change(new_img)
-        self._original_for_sliders = self.model.get_image().copy()
-        self._reset_sliders()
+        self.blur_reference = self.model.get_image().copy()
         self._update_display()
         self._update_status_bar()
 
@@ -233,10 +356,9 @@ class ImageEditorApp(tk.Tk):
         if not self._ensure_image_loaded():
             return
         img = self.model.get_image()
-        new_img = self.processor.edges(img, 100, 200)
+        new_img = self._apply_intensity_filters(img)
         self.model.apply_change(new_img)
-        self._original_for_sliders = self.model.get_image().copy()
-        self._reset_sliders()
+        self.blur_reference = self.model.get_image().copy()
         self._update_display()
         self._update_status_bar()
 
@@ -247,7 +369,8 @@ class ImageEditorApp(tk.Tk):
         new_img = self.processor.rotate(img, angle)
         self.model.apply_change(new_img)
         self._original_for_sliders = self.model.get_image().copy()
-        self._reset_sliders()
+        self.blur_reference = self.model.get_image().copy()
+        self.reset_all()
         self._update_display()
         self._update_status_bar()
 
@@ -258,7 +381,8 @@ class ImageEditorApp(tk.Tk):
         new_img = self.processor.flip(img, mode)
         self.model.apply_change(new_img)
         self._original_for_sliders = self.model.get_image().copy()
-        self._reset_sliders()
+        self.blur_reference = self.model.get_image().copy()
+        self.reset_all()
         self._update_display()
         self._update_status_bar()
 
@@ -270,7 +394,6 @@ class ImageEditorApp(tk.Tk):
         img = self.model.get_image()
         scale = self.scale_var.get()
         new_img = self.processor.resize(img, scale=scale)
-        # Do NOT push to undo stack on every slider move; just update view
         self._display_image(new_img)
         self._update_status_bar(temp_image=new_img)
 
@@ -285,7 +408,6 @@ class ImageEditorApp(tk.Tk):
         new_img = self.processor.adjust_brightness_contrast(
             self._original_for_sliders, brightness=b, contrast=c
         )
-        # Only preview; not committed to undo/redo until user clicks 'Apply' if you add such button.
         self._display_image(new_img)
         self._update_status_bar(temp_image=new_img)
 
