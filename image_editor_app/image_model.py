@@ -40,14 +40,7 @@ class ImageModel:
         self._undo_stack.clear()
         self._redo_stack.clear()
 
-    def save_image(self, file_path=None):
-        if self._current_image is None:
-            raise ValueError("No image to save.")
-        target_path = file_path if file_path is not None else self._file_path
-        if target_path is None:
-            raise ValueError("No file path specified.")
-        cv2.imwrite(target_path, self._current_image)
-        self._file_path = target_path
+    
 
     def apply_change(self, new_image):
         """Push current image to undo stack and set new image."""
