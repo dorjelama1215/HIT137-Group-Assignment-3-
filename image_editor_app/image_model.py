@@ -31,7 +31,7 @@ class ImageModel:
 
     # Core methods
     def load_image(self, file_path):
-        image = cv2.imread(file_path)
+        image = cv2.imread(file_path, cv2.IMREAD_UNCHANGED)
         if image is None:
             raise ValueError("Could not load image.")
         self._file_path = file_path
@@ -40,7 +40,19 @@ class ImageModel:
         self._undo_stack.clear()
         self._redo_stack.clear()
 
-    
+    def save_image(self, file_path=None):
+        if self._current_image is None:
+            raise ValueError("No image to save.")
+        
+        path = file_path if file_path else self._file_path
+        if not path:
+            raise ValueError("No file path specified.")
+        
+        # Save with appropriate format
+        cv2.imwrite(path, self._current_image)
+        
+        if file_path:
+            self._file_path = file_path
 
     def apply_change(self, new_image):
         """Push current image to undo stack and set new image."""

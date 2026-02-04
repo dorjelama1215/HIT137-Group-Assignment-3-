@@ -57,3 +57,40 @@ class ImageProcessor:
         new_w = int(w * scale)
         new_h = int(h * scale)
         return cv2.resize(image, (new_w, new_h), interpolation=cv2.INTER_LINEAR)
+
+    def remove_background(self, image):
+        """
+        Remove background using GrabCut algorithm.
+        Returns image with transparent background (BGRA format).
+        """
+        # Create a copy to work with
+        img = image.copy()
+        
+        # Create mask for GrabCut
+        mask = np.zeros(img.shape[:2], np.uint8)
+        
+        # Create background and foreground models (required by GrabCut)
+        bgd_model = np.zeros((1, 65), np.float64)
+        fgd_model = np.zeros((1, 65), np.float64)
+        
+        # Define rectangle around the foreground (assume center region)
+        h, w = img.shape[:2]
+        rect = (10, 10, w - 20, h - 20)
+        
+        # Apply GrabCut algorithm
+        cv2.grabCut(img, mask, rect, bgd_model, fgd_model, 5, cv2.GC_INIT_WITH_RECT)
+        
+        # Modify mask: set definite background and probable background to 0
+        # definite foreground and probable foreground to 1
+        mask2 = np.where((mask == 2) | (mask == 0), 0, 1).astype('uint8')
+        
+        # Create alpha channel from mask
+        alpha = mask2 * 255
+        
+        # Convert BGR to BGRA
+        bgra = cv2.cvtColor(img, cv2.COLOR_BGR2BGRA)
+        
+        # Apply alpha channel
+        bgra[:, :, 3] = alpha
+        
+        return bgra

@@ -75,6 +75,9 @@ class ImageEditorApp(tk.Tk):
         tk.Button(control_frame, text="Apply Grayscale", command=self.apply_grayscale).pack(fill=tk.X, padx=10, pady=2)
         tk.Button(control_frame, text="Apply Blur", command=self.apply_blur).pack(fill=tk.X, padx=10, pady=2)
         tk.Button(control_frame, text="Apply Edges", command=self.apply_edges).pack(fill=tk.X, padx=10, pady=2)
+        
+        # Background Remover Button
+        tk.Button(control_frame, text="BG Remover", command=self.apply_bg_removal, bg="lightgreen").pack(fill=tk.X, padx=10, pady=2)
 
         # Grayscale Intensity Slider + buttons
         tk.Label(control_frame, text="Grayscale Intensity", font=("Arial", 10, "bold")).pack(pady=(15, 0))
@@ -283,13 +286,13 @@ class ImageEditorApp(tk.Tk):
             messagebox.showwarning("Warning", "No image to save.")
             return
         filetypes = [
-            ("JPEG", "*.jpg"),
             ("PNG", "*.png"),
+            ("JPEG", "*.jpg"),
             ("Bitmap", "*.bmp"),
             ("All files", "*.*"),
         ]
         path = filedialog.asksaveasfilename(
-            defaultextension=".jpg",
+            defaultextension=".png",
             filetypes=filetypes,
             title="Save Image As"
         )
@@ -361,6 +364,23 @@ class ImageEditorApp(tk.Tk):
         self._update_display()
         self._update_status_bar()
 
+    def apply_bg_removal(self):
+        """Apply background removal to the current image."""
+        if not self._ensure_image_loaded():
+            return
+        try:
+            img = self.model.get_image()
+            new_img = self.processor.remove_background(img)
+            self.model.apply_change(new_img)
+            self._original_for_sliders = self.model.get_image().copy()
+            self.blur_reference = self.model.get_image().copy()
+            self.reset_all()
+            self._update_display()
+            self._update_status_bar()
+            messagebox.showinfo("Success", "Background removed! Save as PNG to preserve transparency.")
+        except Exception as e:
+            messagebox.showerror("Error", f"Background removal failed: {str(e)}")
+
     def apply_rotate(self, angle):
         if not self._ensure_image_loaded():
             return
@@ -418,8 +438,17 @@ class ImageEditorApp(tk.Tk):
     # ---------- Display helpers ----------
 
     def _display_image(self, image):
-        # Convert BGR (OpenCV) to RGB for Tkinter
-        rgb_image = image[:, :, ::-1]
+        # Handle both 3-channel and 4-channel images (with alpha)
+        if len(image.shape) == 3:
+            if image.shape[2] == 4:
+                # BGRA to RGBA
+                rgb_image = cv2.cvtColor(image, cv2.COLOR_BGRA2RGBA)
+            else:
+                # BGR to RGB
+                rgb_image = image[:, :, ::-1]
+        else:
+            rgb_image = image
+
         pil_image = Image.fromarray(rgb_image)
 
         # Fit to canvas while keeping aspect ratio
