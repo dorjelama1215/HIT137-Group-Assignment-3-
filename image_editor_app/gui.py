@@ -15,6 +15,7 @@ class ImageEditorApp(tk.Tk):
     """
     Main GUI class. Interacts with ImageModel and ImageProcessor.
     Demonstrates class interaction and Tkinter GUI elements.
+    Handles all the user interaction and events
     """
 
     def __init__(self):
@@ -206,7 +207,9 @@ class ImageEditorApp(tk.Tk):
             self._update_status_bar()
 
     def on_intensity_change(self, event=None):
-        """Live preview for grayscale, blur, edge sliders."""
+        """Live preview for grayscale, blur, edge sliders.
+        The effects are applied to reference copy of the image without changing the 
+        original image until specifed"""
         if self.blur_reference is None and self.model.get_image() is not None:
             self.blur_reference = self.model.get_image().copy()
         

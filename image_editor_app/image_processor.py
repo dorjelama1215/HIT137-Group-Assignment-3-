@@ -61,7 +61,8 @@ class ImageProcessor:
     def remove_background(self, image):
         """
         Remove background using GrabCut algorithm.
-        Returns image with transparent background (BGRA format).
+        Assumes the foreground s located near the center of the image and returns a 
+        BGRA image with an alpha channel for transparency.
         """
         # Create a copy to work with
         img = image.copy()

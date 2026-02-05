@@ -55,7 +55,8 @@ class ImageModel:
             self._file_path = file_path
 
     def apply_change(self, new_image):
-        """Push current image to undo stack and set new image."""
+        """Push current image to undo stack and set new image.
+        Clears the redo stack to maintain correct history behaviour"""
         if self._current_image is not None:
             self._undo_stack.append(self._current_image.copy())
             self._redo_stack.clear()
