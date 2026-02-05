@@ -35,6 +35,9 @@ class ImageEditorApp(tk.Tk):
         self._create_menu()
         self._create_widgets()
         self._create_status_bar()
+        
+        # Show welcome message prompting to upload an image
+        self.after(100, self._show_welcome_message)
 
     # ---------- GUI setup ----------
 
@@ -185,6 +188,10 @@ class ImageEditorApp(tk.Tk):
         self.status_var = tk.StringVar(value="No image loaded.")
         status_bar = tk.Label(self, textvariable=self.status_var, bd=1, relief=tk.SUNKEN, anchor=tk.W)
         status_bar.pack(side=tk.BOTTOM, fill=tk.X)
+
+    def _show_welcome_message(self):
+        """Show welcome message prompting user to upload an image."""
+        messagebox.showinfo("Welcome", "Please upload an image to get started!\n\nGo to File > Open to select an image.")
 
     # ---------- New intensity control methods ----------
 
@@ -408,9 +415,9 @@ class ImageEditorApp(tk.Tk):
     # ---------- Sliders: resize, brightness, contrast ----------
 
     def on_scale_change(self, event=None):
-        if not self._ensure_image_loaded():
-            return
         img = self.model.get_image()
+        if img is None:
+            return
         scale = self.scale_var.get()
         new_img = self.processor.resize(img, scale=scale)
         self._display_image(new_img)
@@ -418,7 +425,7 @@ class ImageEditorApp(tk.Tk):
 
     def on_brightness_contrast_change(self, event=None):
         if self._original_for_sliders is None:
-            if not self._ensure_image_loaded():
+            if self.model.get_image() is None:
                 return
             self._original_for_sliders = self.model.get_image().copy()
 
