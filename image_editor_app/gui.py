@@ -70,11 +70,11 @@ class ImageEditorApp(tk.Tk):
         # Buttons for basic operations
         tk.Label(control_frame, text="Operations", font=("Arial", 12, "bold")).pack(pady=10)
 
-        tk.Button(control_frame, text="Reset All", command=self.reset_all, bg="lightblue").pack(fill=tk.X, padx=10, pady=5)
+        tk.Button(control_frame, text="Reset All", command=self.reset_all, bg="lightgreen").pack(fill=tk.X, padx=10, pady=5)
 
-        tk.Button(control_frame, text="Apply Grayscale", command=self.apply_grayscale).pack(fill=tk.X, padx=10, pady=2)
-        tk.Button(control_frame, text="Apply Blur", command=self.apply_blur).pack(fill=tk.X, padx=10, pady=2)
-        tk.Button(control_frame, text="Apply Edges", command=self.apply_edges).pack(fill=tk.X, padx=10, pady=2)
+        tk.Button(control_frame, text="Apply Grayscale", command=self.apply_grayscale, bg="lightgreen").pack(fill=tk.X, padx=10, pady=2)
+        tk.Button(control_frame, text="Apply Blur", command=self.apply_blur, bg="lightgreen").pack(fill=tk.X, padx=10, pady=2)
+        tk.Button(control_frame, text="Apply Edges", command=self.apply_edges, bg="lightgreen").pack(fill=tk.X, padx=10, pady=2)
         
         # Background Remover Button
         tk.Button(control_frame, text="BG Remover", command=self.apply_bg_removal, bg="lightgreen").pack(fill=tk.X, padx=10, pady=2)
